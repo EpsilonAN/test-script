@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-repo init -u https://github.com/LineageOS/android.git -b lineage-23.2 --git-lfs
+repo init -u https://github.com/LineageOS/android.git -b lineage-23.2 --git-lfs --depth=1
 /opt/crave/resync.sh
 
 git clone https://github.com/EpsilonAN/android_device_xiaomi_marble device/xiaomi/marble
