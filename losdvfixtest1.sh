@@ -122,7 +122,6 @@ cd frameworks/av
 git fetch https://github.com/cr-15-temp/frameworks_av.git vili
 
 # Dolby Vision patchset
-# Oldest -> newest
 
 git cherry-pick 77911c405d31eeee685dd5a63d67c0d621c43dc3
 git cherry-pick ac00328b58f581a90cca2dd59a77fc7aaab9fcd9
