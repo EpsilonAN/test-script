@@ -1,0 +1,415 @@
+#!/usr/bin/env bash
+set -e
+
+# =========================================================
+# LINEAGEOS 23.2 - MARBLE - DOLBY VISION
+# =========================================================
+
+echo "======================================"
+echo "LINEAGEOS 23.2 - MARBLE BUILD"
+echo "DOLBY VISION"
+echo "======================================"
+
+# =========================================================
+# 1. INITIALIZE LINEAGEOS 23.2
+# =========================================================
+
+echo "======================================"
+echo "Initializing LineageOS 23.2"
+echo "======================================"
+
+repo init -u https://github.com/LineageOS/android.git \
+  -b lineage-23.2 \
+  --git-lfs \
+  --depth=1
+
+echo "Repo init successful"
+
+# =========================================================
+# 2. CLEAN OLD MANUALLY CLONED TREES
+# =========================================================
+# =========================================================
+
+echo "======================================"
+echo "Cleaning old custom trees"
+echo "======================================"
+
+rm -rf frameworks/av
+
+rm -rf device/xiaomi/marble
+rm -rf device/xiaomi/sm8450-common
+rm -rf device/xiaomi/miuicamera-marble
+rm -rf device/xiaomi/sepolicy
+
+rm -rf vendor/xiaomi/sm8450-common
+rm -rf vendor/xiaomi/marble
+rm -rf vendor/xiaomi/miuicamera-marble
+rm -rf vendor/aosp/signing/keys
+
+rm -rf hardware/xiaomi
+rm -rf hardware/dolby
+
+rm -rf kernel/xiaomi/sm8450
+rm -rf kernel/xiaomi/sm8450-devicetrees
+rm -rf kernel/xiaomi/sm8450-modules
+
+rm -rf certs
+
+echo "Custom tree cleanup complete"
+
+# =========================================================
+# 3. SYNC LINEAGEOS SOURCE
+# =========================================================
+
+echo "======================================"
+echo "Syncing LineageOS source"
+echo "======================================"
+
+/opt/crave/resync.sh
+
+echo "======================================"
+echo "LOS source sync successful"
+echo "======================================"
+
+# =========================================================
+# 4. DEVICE TREES
+# =========================================================
+
+echo "======================================"
+echo "Cloning device trees"
+echo "======================================"
+
+git clone \
+  https://github.com/EpsilonAN/android_device_xiaomi_marble \
+  device/xiaomi/marble
+
+git clone \
+  https://github.com/EpsilonAN/android_device_xiaomi_sm8450-common \
+  device/xiaomi/sm8450-common
+
+# =========================================================
+# 5. VENDOR TREES
+# =========================================================
+
+echo "======================================"
+echo "Cloning vendor trees"
+echo "======================================"
+
+git clone \
+  https://github.com/EpsilonAN/proprietary_vendor_xiaomi_sm8450-common \
+  vendor/xiaomi/sm8450-common
+
+git clone \
+  https://github.com/EpsilonAN/proprietary_vendor_xiaomi_marble \
+  vendor/xiaomi/marble
+
+# =========================================================
+# 6. HARDWARE
+# =========================================================
+
+echo "======================================"
+echo "Cloning hardware trees"
+echo "======================================"
+
+git clone \
+  https://github.com/EpsilonAN/android_hardware_xiaomi \
+  hardware/xiaomi
+
+git clone \
+  https://github.com/Dedsec-marble/android_hardware_dolby \
+  hardware/dolby
+
+# =========================================================
+# 7. MIUI CAMERA
+# =========================================================
+
+echo "======================================"
+echo "Cloning MIUI camera trees"
+echo "======================================"
+
+git clone \
+  https://github.com/Dedsec-marble/android_device_xiaomi_miuicamera-marble \
+  device/xiaomi/miuicamera-marble
+
+git clone \
+  https://github.com/Dedsec-marble/proprietary_vendor_xiaomi_miuicamera-marble \
+  vendor/xiaomi/miuicamera-marble
+
+# =========================================================
+# 8. KERNEL
+# =========================================================
+
+echo "======================================"
+echo "Cloning kernel trees"
+echo "======================================"
+
+git clone \
+  https://github.com/EpsilonAN/android_kernel_xiaomi_sm8450 \
+  kernel/xiaomi/sm8450
+
+git clone \
+  https://github.com/EpsilonAN/android_kernel_xiaomi_sm8450-devicetrees \
+  kernel/xiaomi/sm8450-devicetrees
+
+git clone \
+  https://github.com/EpsilonAN/android_kernel_xiaomi_sm8450-modules \
+  kernel/xiaomi/sm8450-modules
+
+# =========================================================
+# 9. SEPOLICY
+# =========================================================
+
+echo "======================================"
+echo "Cloning Xiaomi sepolicy"
+echo "======================================"
+
+git clone \
+  https://github.com/AOSPA/android_device_xiaomi_sepolicy \
+  device/xiaomi/sepolicy
+
+# =========================================================
+# 10. SIGNING CERTIFICATES
+# =========================================================
+
+echo "======================================"
+echo "Cloning signing certificates"
+echo "======================================"
+
+git clone \
+  https://github.com/xenxynon/certs \
+  vendor/aosp/signing/keys
+
+# Keep second cert clone intentionally
+git clone \
+  https://github.com/xenxynon/certs
+
+echo "Signing certificates cloned successfully"
+
+# =========================================================
+# 11. PATCHED FRAMEWORKS/AV
+# =========================================================
+# Official LOS frameworks/av was synced above.
+# Replace it with the already-resolved Dolby Vision fork.
+# =========================================================
+
+echo "======================================"
+echo "Cloning patched frameworks/av"
+echo "======================================"
+
+git clone -b lineage-23.2 \
+  https://github.com/EpsilonAN/android_frameworks_av.git \
+  frameworks/av
+
+echo "Patched frameworks/av cloned successfully"
+
+# =========================================================
+# 12. VERIFY FRAMEWORKS/AV
+# =========================================================
+
+echo "======================================"
+echo "Verifying patched frameworks/av"
+echo "======================================"
+
+cd frameworks/av
+
+echo "Current branch:"
+git branch --show-current
+
+echo "Latest commits:"
+git log -8 --oneline
+
+# ---------------------------------------------------------
+# Check branch
+# ---------------------------------------------------------
+
+if [ "$(git branch --show-current)" != "lineage-23.2" ]; then
+    echo "ERROR: frameworks/av is not on lineage-23.2!"
+    exit 1
+fi
+
+# ---------------------------------------------------------
+# Check unresolved merge conflicts
+# ---------------------------------------------------------
+
+if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+    echo "ERROR: Unresolved merge conflicts found!"
+    git status
+    exit 1
+fi
+
+# ---------------------------------------------------------
+# Verify Dolby commit 1
+# ---------------------------------------------------------
+
+git log --oneline -20 | grep -q \
+"libstagefright: omx: Add support for loading prebuilt ddp and ac4 decoder lib" \
+|| {
+    echo "ERROR: Dolby commit 1 missing!"
+    exit 1
+}
+
+# ---------------------------------------------------------
+# Verify Dolby commit 2
+# ---------------------------------------------------------
+
+git log --oneline -20 | grep -q \
+"OMX: Remove support for prebuilt ac4 decoder" \
+|| {
+    echo "ERROR: Dolby commit 2 missing!"
+    exit 1
+}
+
+# ---------------------------------------------------------
+# Verify Dolby commit 3
+# ---------------------------------------------------------
+
+git log --oneline -20 | grep -q \
+"media: OMXStore: Import loading libstagefrightdolby" \
+|| {
+    echo "ERROR: Dolby commit 3 missing!"
+    exit 1
+}
+
+# ---------------------------------------------------------
+# Verify Dolby commit 4
+# ---------------------------------------------------------
+
+git log --oneline -20 | grep -q \
+"media: Add changes to pick target specific media xml" \
+|| {
+    echo "ERROR: Dolby commit 4 missing!"
+    exit 1
+}
+
+# ---------------------------------------------------------
+# Verify Dolby commit 5
+# ---------------------------------------------------------
+
+git log --oneline -20 | grep -q \
+"MediaProfiles: Check before overriding media settings xml" \
+|| {
+    echo "ERROR: Dolby commit 5 missing!"
+    exit 1
+}
+
+echo "======================================"
+echo "All 5 Dolby framework commits verified"
+echo "======================================"
+
+cd ../..
+
+# =========================================================
+# 13. BUILD CONFIGURATION
+# =========================================================
+
+echo "======================================"
+echo "Preparing build environment"
+echo "======================================"
+
+export BUILD_BROKEN_MISSING_REQUIRED_MODULES=true
+export GIT_EDITOR=true
+
+source build/envsetup.sh
+
+lunch lineage_marble-bp4a-userdebug
+
+echo "Build environment ready"
+
+# =========================================================
+# 14. BUILD ROM
+# =========================================================
+
+echo "======================================"
+echo "STARTING LINEAGEOS 23.2 BUILD"
+echo "======================================"
+
+m bacon
+
+echo "======================================"
+echo "LineageOS bacon build completed"
+echo "======================================"
+
+# =========================================================
+# 15. BUILD TARGET FILES + OTA TOOLS
+# =========================================================
+
+echo "======================================"
+echo "Building target-files and OTA tools"
+echo "======================================"
+
+m target-files-package otatools
+
+echo "Target-files and OTA tools completed"
+
+# =========================================================
+# 16. FIND TARGET FILES ZIP
+# =========================================================
+
+echo "======================================"
+echo "Searching for target-files ZIP"
+echo "======================================"
+
+TARGET_FILES_ZIP=$(find out/target/product \
+  -type f \
+  -name "*-target_files.zip" \
+  | head -n 1)
+
+if [ -z "$TARGET_FILES_ZIP" ]; then
+    echo "ERROR: target-files ZIP not found!"
+    echo "Build/signing cannot continue."
+    exit 1
+fi
+
+echo "======================================"
+echo "TARGET FILES FOUND"
+echo "$TARGET_FILES_ZIP"
+echo "======================================"
+
+# =========================================================
+# 17. SIGN TARGET FILES
+# =========================================================
+
+echo "======================================"
+echo "Signing target-files"
+echo "======================================"
+
+sign_target_files_apks \
+  -o \
+  -d vendor/aosp/signing/keys \
+  "$TARGET_FILES_ZIP" \
+  signed-target_files.zip
+
+echo "Target-files signed successfully"
+
+# =========================================================
+# 18. GENERATE SIGNED OTA
+# =========================================================
+
+echo "======================================"
+echo "Generating signed OTA"
+echo "======================================"
+
+ota_from_target_files \
+  -k vendor/aosp/signing/keys/releasekey \
+  signed-target_files.zip \
+  signed-ota_update.zip
+
+echo "Signed OTA generated successfully"
+
+# =========================================================
+# 19. FINAL OUTPUT
+# =========================================================
+
+echo "======================================"
+echo "BUILD + SIGNING COMPLETE"
+echo "======================================"
+
+echo "Signed target-files:"
+ls -lh signed-target_files.zip
+
+echo "Signed OTA:"
+ls -lh signed-ota_update.zip
+
+echo "======================================"
+echo "LINEAGEOS 23.2 MARBLE BUILD FINISHED"
+echo "======================================"
